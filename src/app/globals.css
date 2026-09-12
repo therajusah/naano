@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Naano clone design tokens (Tailwind v4 CSS-first @theme).
+   Palette evokes the live site: deep navy hero, near-black CTAs, clean
+   grotesque type, airy light sections. Colors become utilities automatically
+   (e.g. bg-navy, text-brand, border-border).
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: #ffffff;
+  --color-foreground: #0b1220;
+
+  --color-muted: #f5f6f8;
+  --color-muted-foreground: #5c6b7a;
+
+  --color-border: #e6e9ee;
+  --color-input: #e6e9ee;
+  --color-ring: #3b6ef6;
+
+  /* Brand ink / navy for hero + dark surfaces */
+  --color-ink: #0b1220;
+  --color-navy: #0b2136;
+  --color-navy-800: #0f2a42;
+  --color-navy-700: #16334e;
+  --color-navy-600: #1f455f;
+
+  /* Accents (comet gradient blue -> green) */
+  --color-brand: #3b6ef6;
+  --color-brand-600: #2f5fe0;
+  --color-brand-700: #274fbe;
+  --color-brand-foreground: #ffffff;
+  --color-accent: #16c98d;
+  --color-accent-600: #10a976;
+
+  /* Semantic status colors for booking pipeline / metrics */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Gradient text used for accents in headings */
+.text-gradient {
+  background: linear-gradient(100deg, var(--color-brand) 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft "cloud" hero backdrop that evokes the live site without copying assets */
+.hero-clouds {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(255, 255, 255, 0.16), transparent 60%),
+    radial-gradient(900px 400px at 15% 10%, rgba(146, 197, 255, 0.18), transparent 60%),
+    radial-gradient(900px 400px at 85% 5%, rgba(120, 231, 190, 0.14), transparent 60%),
+    linear-gradient(180deg, var(--color-navy) 0%, var(--color-navy-800) 100%);
+}
+
+/* Subtle dotted grid for section backgrounds */
+.bg-dotgrid {
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Thin, tasteful scrollbars in dashboard scroll areas */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}

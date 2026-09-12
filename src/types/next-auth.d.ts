@@ -1,0 +1,23 @@
+import type { UserRole } from "@prisma/client";
+import type { DefaultSession } from "next-auth";
+
+// Augment Auth.js types so `session.user.role` / `token.role` are typed.
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: UserRole;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    role: UserRole;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: UserRole;
+  }
+}

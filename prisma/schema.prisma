@@ -1,0 +1,309 @@
+// Naano clone — data model.
+// Postgres + Prisma. IDs are cuids (non-sequential) to reduce IDOR guessability
+// (OWASP-IDOR-001); authorization is still enforced in every query, not by id opacity.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (typed state machines — no magic strings, BP-CONST-001)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  COMPANY
+  CREATOR
+  AGENCY
+  ADMIN
+}
+
+enum Plan {
+  SELF_SERVE
+  MANAGED
+}
+
+enum AgencyType {
+  BRAND_AGENCY
+  CREATOR_AGENCY
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+// The booking lifecycle a creator moves through on a campaign.
+enum BookingStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  DRAFT_SUBMITTED
+  APPROVED
+  SCHEDULED
+  LIVE
+  COMPLETED
+  PAID
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  // bcrypt hash only — never plaintext or reversible (OWASP-AUTH-001).
+  passwordHash String
+  role         UserRole @default(COMPANY)
+  image        String?
+
+  // Basic brute-force protection state (OWASP-AUTH-001 / RATELIMIT-001).
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  companyProfile CompanyProfile?
+  creatorProfile CreatorProfile?
+  agencyProfile  AgencyProfile?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Company (brand) side
+// ---------------------------------------------------------------------------
+
+model CompanyProfile {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName    String
+  website        String?
+  logoUrl        String?
+  industry       String?
+  vertical       String?
+  icpDescription String?
+  icpFunctions   String[] // target buyer functions, e.g. ["Marketing", "Sales"]
+  icpSeniorities String[] // target seniorities, e.g. ["Founder/C-level", "VP/Head/Director"]
+  plan           Plan    @default(SELF_SERVE)
+
+  // Optional link to the agency client workspace that manages this brand.
+  agencyClientWorkspaceId String?
+  agencyClientWorkspace   AgencyClientWorkspace? @relation(fields: [agencyClientWorkspaceId], references: [id])
+
+  campaigns Campaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Creator side
+// ---------------------------------------------------------------------------
+
+model CreatorProfile {
+  id          String  @id @default(cuid())
+  // Nullable: creators managed by a creator-agency have no login of their own.
+  userId      String? @unique
+  user        User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  headline    String
+  bio         String
+  avatarUrl   String?
+  location    String
+
+  verticals      String[]
+  followers      Int
+  medianReach    Int
+  engagementRate Float
+  avgReactions   Int
+  avgComments    Int
+  pricePerPost   Int    // whole euros
+  currency       String @default("EUR")
+  available      Boolean @default(true)
+
+  // Audience composition as { label: fraction } maps, used for fit scoring.
+  audienceBySeniority Json
+  audienceByFunction  Json
+  statsUpdatedAt      DateTime @default(now())
+
+  // Creator-agency roster membership (managed profile, no login).
+  managedByAgencyId String?
+  managedByAgency   AgencyProfile? @relation("AgencyRoster", fields: [managedByAgencyId], references: [id])
+
+  posts    CreatorPost[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([available])
+}
+
+model CreatorPost {
+  id               String         @id @default(cuid())
+  creatorProfileId String
+  creator          CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  content          String
+  imageUrl         String?
+  reactions        Int            @default(0)
+  comments         Int            @default(0)
+  postedAt         DateTime
+}
+
+// ---------------------------------------------------------------------------
+// Agency side
+// ---------------------------------------------------------------------------
+
+model AgencyProfile {
+  id         String     @id @default(cuid())
+  userId     String     @unique
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agencyName String
+  type       AgencyType
+
+  clientWorkspaces AgencyClientWorkspace[]
+  rosterCreators   CreatorProfile[]        @relation("AgencyRoster")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgencyClientWorkspace {
+  id              String           @id @default(cuid())
+  agencyProfileId String
+  agency          AgencyProfile    @relation(fields: [agencyProfileId], references: [id], onDelete: Cascade)
+  clientName      String
+  budget          Int              @default(0)
+  companies       CompanyProfile[]
+  campaigns       Campaign[]
+  createdAt       DateTime         @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Campaigns, briefs, bookings, attribution
+// ---------------------------------------------------------------------------
+
+model Campaign {
+  id               String         @id @default(cuid())
+  companyProfileId String
+  company          CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+
+  agencyClientWorkspaceId String?
+  agencyClientWorkspace   AgencyClientWorkspace? @relation(fields: [agencyClientWorkspaceId], references: [id])
+
+  name            String
+  status          CampaignStatus @default(DRAFT)
+  vertical        String?
+  icp             String?
+  objective       String?
+  budget          Int            @default(0)
+  targetPostCount Int            @default(0)
+  startDate       DateTime?
+  endDate         DateTime?
+
+  brief    Brief?
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyProfileId])
+}
+
+model Brief {
+  id            String   @id @default(cuid())
+  campaignId    String   @unique
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  angle         String
+  hook          String
+  cta           String
+  keyMessages   String[]
+  audience      String
+  toneOfVoice   String
+  doList        String[]
+  dontList      String[]
+  proofPoints   String[]
+  generatedByAI Boolean  @default(false)
+  prompt        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Booking {
+  id               String         @id @default(cuid())
+  campaignId       String
+  campaign         Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorProfileId String
+  creator          CreatorProfile @relation(fields: [creatorProfileId], references: [id])
+
+  status       BookingStatus @default(INVITED)
+  pricePerPost Int
+  fitScore     Int // 0-100 snapshot at booking time
+  trackedSlug  String        @unique // powers /t/[slug] attribution redirect
+  targetUrl    String
+  draftContent String?
+  scheduledAt  DateTime?
+  publishedAt  DateTime?
+
+  metrics PostMetricDaily[]
+  leads   Lead[]
+  payout  Payout?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, creatorProfileId])
+  @@index([creatorProfileId])
+}
+
+// Daily time series of attribution metrics per booked post (feeds charts).
+model PostMetricDaily {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  leads       Int      @default(0)
+
+  @@unique([bookingId, date])
+}
+
+// Identifiable contact surfaced from post engagement.
+model Lead {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  name        String
+  title       String
+  company     String
+  linkedinUrl String?
+  capturedAt  DateTime @default(now())
+}
+
+model Payout {
+  id        String       @id @default(cuid())
+  bookingId String       @unique
+  booking   Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount    Int
+  currency  String       @default("EUR")
+  status    PayoutStatus @default(PENDING)
+  method    String       @default("SEPA")
+  paidAt    DateTime?
+  createdAt DateTime     @default(now())
+}
