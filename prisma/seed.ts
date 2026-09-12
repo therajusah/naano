@@ -234,6 +234,16 @@ async function clearAll() {
 }
 
 async function main() {
+  // Vercel/production build sets SEED_IF_EMPTY=1 so first deploy loads demo
+  // accounts, and later deploys skip instead of wiping live data.
+  if (process.env.SEED_IF_EMPTY === "1") {
+    const existing = await prisma.user.count();
+    if (existing > 0) {
+      console.log(`seed skipped (${existing} users already present)`);
+      return;
+    }
+  }
+
   console.log("🌱 Seeding Naano demo data…");
   await clearAll();
   const passwordHash = await hashPassword(DEMO_PASSWORD);

@@ -11,28 +11,26 @@ fastest path (Vercel + Neon), plus a generic path for any host.
 - Create a project at https://neon.tech → copy the **pooled connection string**
   (looks like `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`).
 
-### 2. Push the schema + seed the demo data (one-time, from your machine)
-```bash
-# point at the hosted DB just for these two commands
-DATABASE_URL="postgresql://…neon.tech/neondb?sslmode=require" npx prisma db push
-DATABASE_URL="postgresql://…neon.tech/neondb?sslmode=require" npm run db:seed
-```
-> `db push` syncs the schema (no migration history needed). `db:seed` loads ~40 creators,
-> campaigns, metrics, and the four demo accounts.
-
-### 3. Deploy on Vercel
+### 2. Deploy on Vercel
 - Push this repo to **GitHub** (public), then "Import Project" in Vercel (it auto-detects Next.js).
-- Set **Environment Variables** (Production):
+- Set **Environment Variables** (Production **and** Preview — Prisma runs at build time):
 
 | Key | Value |
 | --- | --- |
-| `DATABASE_URL` | your Neon pooled connection string |
+| `DATABASE_URL` | your Neon connection string (`?sslmode=require`). Prefer the **direct** (non-pooled) URL so `prisma db push` can run during the build. |
 | `AUTH_SECRET` | generate with `openssl rand -base64 32` |
 | `AUTH_URL` | your production URL, e.g. `https://your-app.vercel.app` |
 | `OPENAI_API_KEY` | *(optional)* your key, to enable the AI brief generator |
 | `OPENAI_BRIEF_MODEL` | *(optional)* defaults to `gpt-4o-mini` |
 
-- Deploy. The `build` script already runs `prisma generate` before `next build`.
+- Deploy. `npm run build` runs `prisma generate`, `prisma db push` (creates/updates tables from `DATABASE_URL`), then seeds **only if the database has no users**. Redeploys do not wipe data.
+
+### 3. Optional: re-seed from your machine
+`npm run db:seed` always wipes and reloads demo data. Use it only when you want a clean slate:
+
+```bash
+DATABASE_URL="postgresql://…neon.tech/neondb?sslmode=require" npm run db:seed
+```
 
 ### 4. Verify
 - Open the deployed URL in a **fresh/incognito** window (must work for a signed-out visitor).
@@ -44,8 +42,7 @@ DATABASE_URL="postgresql://…neon.tech/neondb?sslmode=require" npm run db:seed
 ## Generic host (Docker / Railway / Render / Fly)
 
 1. Provision Postgres; set `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL` (+ optional `OPENAI_API_KEY`).
-2. Run once against the DB: `prisma db push` then `npm run db:seed`.
-3. Build: `npm ci && npm run build`. Start: `npm run start` (Next.js server, port 3000).
+2. Build: `npm ci && npm run build` (pushes schema; seeds only if the DB is empty). Start: `npm run start` (Next.js server, port 3000).
 
 ---
 
@@ -54,7 +51,7 @@ DATABASE_URL="postgresql://…neon.tech/neondb?sslmode=require" npm run db:seed
   container — production uses your hosted `DATABASE_URL`.
 - No secrets are committed; `.env` is gitignored. Set all secrets in the host's env settings.
 - `AUTH_SECRET` **must** be set in production or Auth.js will refuse to start.
-- Seeding is a one-time step, not part of the build — re-running `db:seed` wipes and reloads demo data.
+- The build applies the Prisma schema (`db push`) using the host `DATABASE_URL`. First build also seeds demo data; later builds skip seed if any user already exists. `npm run db:seed` still wipes and reloads.
 
 ---
 

@@ -161,7 +161,7 @@ Built against an OWASP + best-practices guardrail set. Highlights:
 | Script | Does |
 | --- | --- |
 | `npm run dev` | Start the dev server |
-| `npm run build` | Production build (`prisma generate` + `next build`) |
+| `npm run build` | Production build (`prisma generate` + `db push` + seed-if-empty + `next build`) |
 | `npm run setup` | Generate client, push schema, seed |
 | `npm run db:seed` | Re-seed demo data |
 | `npm run db:studio` | Open Prisma Studio |

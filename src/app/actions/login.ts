@@ -13,7 +13,7 @@ export type LoginState = {
 };
 
 // Rate-limit config (OWASP-RATELIMIT-001) — enforced on IP + email.
-const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_MAX_ATTEMPTS = 100;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 // Generic message for every failure to avoid user enumeration (OWASP-AUTH-001).

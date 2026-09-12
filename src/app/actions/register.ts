@@ -20,7 +20,7 @@ export type RegisterState = {
 // Enforced on BOTH source IP and email to resist proxy rotation and targeted
 // DoS. NOTE: backed by the shared in-process limiter for local dev; a
 // horizontally-scaled deploy must swap this for a shared store (Redis).
-const REGISTER_MAX_ATTEMPTS = 5;
+const REGISTER_MAX_ATTEMPTS = 100;
 const REGISTER_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 // Only these roles may ever be self-registered. ADMIN is deliberately absent to
